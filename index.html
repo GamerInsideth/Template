@@ -111,9 +111,14 @@
         .btn-export-video { background: #38bdf8; margin-top: 10px; width: 100%; padding: 12px; font-size: 16px; display: none; }
         .btn-export-video:hover { background: #0284c7; }
 
+        /* การแสดงผลบนหน้าจอมือถือ/แท็บเล็ต */
         @media (max-width: 1200px) {
             .main-layout { flex-direction: column-reverse; align-items: center; padding: 10px; gap: 20px; }
             .controls { width: 100%; max-width: 600px; margin-top: 10px; }
+            
+            /* ซ่อนปุ่มปรับขนาดบนมือถือ */
+            .preview-zoom-controls { display: none !important; }
+            
             .preview-side { 
                 position: sticky; top: 0; align-items: center; width: 100%; 
                 background: #121212; padding: 15px 0; z-index: 200; 
@@ -124,10 +129,11 @@
 </head>
 <body>
 
-<div id="recordingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-    <h2 style="color:#4ade80; font-family:'CMU', sans-serif; font-size:48px; margin-bottom: 10px;">🔴 กำลังบันทึกวิดีโอ...</h2>
-    <p style="font-size:20px; font-family:'CMU', sans-serif;">วิดีโอจะเล่นไปเรื่อยๆ เพื่อจับภาพและเลเยอร์ทั้งหมดรวมกัน<br>กรุณากด "หยุดบันทึก" เมื่อได้ความยาวที่ต้องการ</p>
-    <button onclick="stopExportVideo()" style="background:#e74c3c; color:#fff; font-size:24px; padding:15px 40px; margin-top:20px; border-radius:8px; cursor:pointer; border:none; font-family:'CMU', sans-serif; box-shadow: 0 5px 15px rgba(231, 76, 60, 0.5);">⏹️ หยุดและบันทึกไฟล์เป็น .mp4</button>
+<div id="recordingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+    <h2 style="color:#4ade80; font-family:'CMU', sans-serif; font-size:48px; margin-bottom: 10px;">🔴 กำลังบันทึกวิดีโออัตโนมัติ...</h2>
+    <p id="recordTimeDisplay" style="font-size:32px; font-family:'CMU', sans-serif; color: #f1c40f;">เหลือเวลาอีก ... วินาที</p>
+    <p style="font-size:18px; font-family:'CMU', sans-serif; color: #ccc; margin-top: 20px;">เมื่อเสร็จสิ้น ระบบจะดาวน์โหลดไฟล์ให้ทันที</p>
+    <button onclick="cancelExportVideo()" style="background:#e74c3c; color:#fff; font-size:18px; padding:10px 30px; margin-top:30px; border-radius:8px; cursor:pointer; border:none; font-family:'CMU', sans-serif;">❌ ยกเลิกการบันทึก</button>
 </div>
 
 <div class="main-layout">
@@ -253,7 +259,7 @@
         </div>
 
         <button class="btn-export" onclick="exportImage()">💾 ดาวน์โหลดรูปภาพชิ้นงาน</button>
-        <button class="btn-export-video" id="btnExportVideo" onclick="exportCompositedVideo()">🎬 ดาวน์โหลดไฟล์วิดีโอ .mp4 (รวมเลเยอร์ทั้งหมด)</button>
+        <button class="btn-export-video" id="btnExportVideo" onclick="exportCompositedVideo()">🎬 ดาวน์โหลดไฟล์วิดีโอ .mp4</button>
     </div>
 
     <div class="preview-side">
@@ -349,6 +355,11 @@
         
         let idealScale = availableW / targetW;
         if(idealScale > 1) idealScale = 1;
+
+        // บังคับให้ขนาดเล็กลงไปอีก 50% บนหน้าจอมือถือ
+        if (containerW <= 1200) {
+            idealScale = idealScale * 0.5;
+        }
         
         setPreviewScale(idealScale, true);
     }
@@ -685,10 +696,15 @@
 
     renderGrid(1);
 
+    // ==========================================
+    // ระบบบันทึกวิดีโอแบบออโต้ (รวมทุกเลเยอร์เป็น MP4)
+    // ==========================================
     let mediaRecorder;
     let recordedChunks = [];
     let isRecording = false;
     let recordAnimFrame;
+    let autoRecordTimeout;
+    let countdownInterval;
 
     async function exportCompositedVideo() {
         const hasVideo = cellsData.some(d => d.type === 'video' && d.el);
@@ -696,6 +712,20 @@
             alert('ไม่พบวิดีโอในช่องพื้นหลังเลย กรุณาใส่วิดีโอก่อนอัด');
             return;
         }
+
+        // 1. คำนวณเวลาบันทึกอัตโนมัติจากช่องที่ต้องใช้นานที่สุด
+        let maxDuration = 0;
+        cellsData.forEach(d => {
+            if (d.type === 'video' && d.el) {
+                let end = d.trimEnd > 0 ? d.trimEnd : (d.el.duration || 5);
+                let start = d.trimStart || 0;
+                let dur = end - start;
+                if (dur > maxDuration) maxDuration = dur;
+                // รีเซ็ตวิดีโอกลับไปจุดเริ่มต้นเพื่อเตรียมอัด
+                d.el.currentTime = start;
+            }
+        });
+        if (maxDuration <= 0) maxDuration = 5; // กันเหนียวไว้อย่างน้อย 5 วิ
 
         const originalScale = manualScale;
         let targetW = 1080; let targetH = 1350;
@@ -710,7 +740,11 @@
         
         bgLayer.style.opacity = '0';
         document.querySelectorAll('.bg-cell').forEach(c => c.classList.remove('active-cell'));
+        
+        // เตรียมหน้าจอตั้งเวลาโหลด
         document.getElementById('recordingOverlay').style.display = 'flex';
+        let timeLeft = maxDuration;
+        document.getElementById('recordTimeDisplay').innerText = `เหลือเวลาอีก ${Math.ceil(timeLeft)} วินาที`;
 
         try {
             const staticCanvas = await html2canvas(canvasArea, { 
@@ -727,7 +761,6 @@
 
             const stream = recCanvas.captureStream(30); 
             
-            // ตั้งค่าให้อัดเป็นนามสกุล .mp4
             let options = { mimeType: 'video/webm' };
             if (MediaRecorder.isTypeSupported('video/mp4')) {
                 options = { mimeType: 'video/mp4' };
@@ -741,12 +774,15 @@
             mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
                 cancelAnimationFrame(recordAnimFrame);
+                clearInterval(countdownInterval);
+                
                 const blob = new Blob(recordedChunks, { type: options.mimeType });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `GamerInside-Composite.mp4`; // บังคับเซฟเป็น MP4
+                a.download = `GamerInside-Composite.mp4`; 
                 a.click();
+                
                 document.getElementById('recordingOverlay').style.display = 'none';
                 setPreviewScale(originalScale, originalScale !== 1 && originalScale !== 0.5);
             };
@@ -793,6 +829,19 @@
             mediaRecorder.start();
             drawFrame();
 
+            // นับถอยหลังบนหน้าจอ
+            countdownInterval = setInterval(() => {
+                timeLeft -= 1;
+                if (timeLeft > 0) {
+                    document.getElementById('recordTimeDisplay').innerText = `เหลือเวลาอีก ${Math.ceil(timeLeft)} วินาที`;
+                }
+            }, 1000);
+
+            // สั่งหยุดและโหลดไฟล์อัตโนมัติเมื่อหมดเวลา
+            autoRecordTimeout = setTimeout(() => {
+                if(isRecording) cancelExportVideo(true); // true = หยุดแบบบันทึกสำเร็จ
+            }, maxDuration * 1000);
+
         } catch (err) {
             console.error(err);
             alert('เกิดข้อผิดพลาดในการสร้างวิดีโอ');
@@ -801,9 +850,20 @@
         }
     }
 
-    function stopExportVideo() {
+    // หยุดบันทึกกลางคัน หรือถูกเรียกเมื่อหมดเวลา
+    function cancelExportVideo(autoSuccess = false) {
         if(mediaRecorder && mediaRecorder.state !== 'inactive') {
             isRecording = false;
+            clearTimeout(autoRecordTimeout);
+            clearInterval(countdownInterval);
+            
+            // ถ้ากดปุ่มยกเลิกเอง จะทิ้งไฟล์ แต่ถ้าโหลดครบเวลา จะเซฟ
+            if (!autoSuccess) {
+                mediaRecorder.onstop = () => {
+                    document.getElementById('recordingOverlay').style.display = 'none';
+                    setPreviewScale(manualScale, false);
+                };
+            }
             mediaRecorder.stop();
         }
     }
