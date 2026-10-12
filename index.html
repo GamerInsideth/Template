@@ -111,14 +111,10 @@
         .btn-export-video { background: #38bdf8; margin-top: 10px; width: 100%; padding: 12px; font-size: 16px; display: none; }
         .btn-export-video:hover { background: #0284c7; }
 
-        /* การแสดงผลบนหน้าจอมือถือ/แท็บเล็ต */
         @media (max-width: 1200px) {
             .main-layout { flex-direction: column-reverse; align-items: center; padding: 10px; gap: 20px; }
             .controls { width: 100%; max-width: 600px; margin-top: 10px; }
-            
-            /* ซ่อนปุ่มปรับขนาดบนมือถือ */
             .preview-zoom-controls { display: none !important; }
-            
             .preview-side { 
                 position: sticky; top: 0; align-items: center; width: 100%; 
                 background: #121212; padding: 15px 0; z-index: 200; 
@@ -130,10 +126,10 @@
 <body>
 
 <div id="recordingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-    <h2 style="color:#4ade80; font-family:'CMU', sans-serif; font-size:48px; margin-bottom: 10px; text-align: center;">🔴 กำลังบันทึกวิดีโออัตโนมัติ...</h2>
+    <h2 style="color:#4ade80; font-family:'CMU', sans-serif; font-size:48px; margin-bottom: 10px; text-align: center;">🔴 กำลังประมวลผลและอัดวิดีโอ...</h2>
     <p id="recordTimeDisplay" style="font-size:32px; font-family:'CMU', sans-serif; color: #f1c40f; text-align: center;">เหลือเวลาอีก ... วินาที</p>
-    <p style="font-size:18px; font-family:'CMU', sans-serif; color: #ccc; margin-top: 20px; text-align: center;">เมื่อเสร็จสิ้น ระบบจะดาวน์โหลดไฟล์ให้ทันที</p>
-    <button onclick="cancelExportVideo()" style="background:#e74c3c; color:#fff; font-size:18px; padding:10px 30px; margin-top:30px; border-radius:8px; cursor:pointer; border:none; font-family:'CMU', sans-serif;">❌ ยกเลิกการบันทึก</button>
+    <p style="font-size:18px; font-family:'CMU', sans-serif; color: #ccc; margin-top: 20px; text-align: center;">ระบบกำลังรวมภาพและเสียงเข้าด้วยกัน กรุณารอสักครู่</p>
+    <button onclick="cancelExportVideo()" style="background:#e74c3c; color:#fff; font-size:18px; padding:10px 30px; margin-top:30px; border-radius:8px; cursor:pointer; border:none; font-family:'CMU', sans-serif;">❌ ยกเลิก</button>
 </div>
 
 <div class="main-layout">
@@ -160,7 +156,7 @@
             
             <div style="background: #111; padding: 10px; border-radius: 4px; border: 1px solid #4ade80;">
                 <label style="color: #4ade80;">📸 จัดการพื้นหลัง (เลือกช่องในจอก่อน)</label>
-                <input type="file" id="bgUpload" accept="image/*,video/*">
+                <input type="file" id="bgUpload" accept="image/*,video/*,.mov,.mp4">
                 <small style="color:#888; display:block; margin-top:5px;">*คลิกช่องในจอให้ขอบเป็น <b>สีเหลือง</b> แล้วลากเมาส์ขยับ หรือกด <b>Ctrl+V</b> วางรูป</small>
                 
                 <div class="zoom-controls">
@@ -259,7 +255,7 @@
         </div>
 
         <button class="btn-export" onclick="exportImage()">💾 ดาวน์โหลดรูปภาพชิ้นงาน</button>
-        <button class="btn-export-video" id="btnExportVideo" onclick="exportCompositedVideo()">🎬 ดาวน์โหลดไฟล์วิดีโอ .mp4</button>
+        <button class="btn-export-video" id="btnExportVideo" onclick="exportCompositedVideo()">🎬 ดาวน์โหลดไฟล์วิดีโอ (พร้อมเสียง)</button>
     </div>
 
     <div class="preview-side">
@@ -621,10 +617,14 @@
         data.scale = 1; data.x = 0; data.y = 0; data.trimStart = 0; data.trimEnd = 0;
         
         let newEl = null;
-        if (file.type.startsWith('video/')) {
+        if (file.type.startsWith('video/') || file.name.match(/\.(mp4|mov)$/i)) {
             newEl = document.createElement('video');
             newEl.src = URL.createObjectURL(file);
-            newEl.autoplay = true; newEl.loop = true; newEl.muted = true;
+            newEl.autoplay = true; 
+            newEl.loop = true; 
+            newEl.muted = false; // อนุญาตให้มีเสียงเพื่อดึงเสียงไปรวมตอนอัด
+            newEl.playsInline = true;
+            newEl.crossOrigin = "anonymous";
             newEl.onloadedmetadata = function() {
                 data.trimEnd = newEl.duration;
                 if(activeCellIndex === parseInt(targetDiv.dataset.index)) updateTrimAndPlaybarUI();
@@ -701,7 +701,7 @@
     renderGrid(1);
 
     // ==========================================
-    // ระบบบันทึกวิดีโอแบบออโต้ (รวมทุกเลเยอร์เป็น MP4)
+    // ระบบบันทึกวิดีโอ (รองรับ MOV/MP4 และดึงเสียงติดไปด้วย)
     // ==========================================
     let mediaRecorder;
     let recordedChunks = [];
@@ -709,6 +709,7 @@
     let recordAnimFrame;
     let autoRecordTimeout;
     let countdownInterval;
+    let audioCtx = null;
 
     async function exportCompositedVideo() {
         const hasVideo = cellsData.some(d => d.type === 'video' && d.el);
@@ -725,6 +726,8 @@
                 let dur = end - start;
                 if (dur > maxDuration) maxDuration = dur;
                 d.el.currentTime = start;
+                d.el.muted = false; // เปิดเสียงเพื่อให้ระบบเก็บเสียงได้
+                d.el.play().catch(e => console.log(e));
             }
         });
         if (maxDuration <= 0) maxDuration = 5; 
@@ -743,7 +746,6 @@
         bgLayer.style.opacity = '0';
         document.querySelectorAll('.bg-cell').forEach(c => c.classList.remove('active-cell'));
         
-        // ทำให้พื้นหลังใสเพื่อให้แคปเทมเพลตได้ทะลุถึงวิดีโอ
         const canvasAreaEl = document.getElementById('captureArea');
         const oldBgColor = canvasAreaEl.style.backgroundColor;
         canvasAreaEl.style.backgroundColor = 'transparent';
@@ -758,7 +760,6 @@
                 backgroundColor: null, useCORS: true 
             });
 
-            // คืนค่าพื้นหลังเดิม
             canvasAreaEl.style.backgroundColor = oldBgColor || '#000';
             bgLayer.style.opacity = '1'; 
             
@@ -768,30 +769,55 @@
             const ctx = recCanvas.getContext('2d');
 
             if (!recCanvas.captureStream) {
-                alert("เบราว์เซอร์ของคุณไม่อนุญาตให้อัดหน้าจอ Canvas แนะนำให้ใช้ Google Chrome / Safari เวอร์ชั่นใหม่ บนคอมพิวเตอร์ครับ");
+                alert("เบราว์เซอร์ของคุณไม่อนุญาตให้อัดหน้าจอ Canvas แนะนำให้ใช้ Google Chrome หรือ Safari เวอร์ชั่นล่าสุดครับ");
                 document.getElementById('recordingOverlay').style.display = 'none';
                 setPreviewScale(originalScale, originalScale !== 1 && originalScale !== 0.5);
                 return;
             }
 
-            const stream = recCanvas.captureStream(30); 
+            // --- ระบบดึงเสียงจากวิดีโอ (Web Audio API) ---
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const dest = audioCtx.createMediaStreamDestination();
             
-            let options = { mimeType: 'video/webm' };
+            cellsData.forEach(d => {
+                if (d.type === 'video' && d.el) {
+                    try {
+                        const source = audioCtx.createMediaElementSource(d.el);
+                        source.connect(dest);
+                        source.connect(audioCtx.destination); // ต่อเข้าลำโพงเบาๆ เพื่อให้เล่นเสียงได้
+                    } catch(err) {
+                        console.log("Audio source already connected", err);
+                    }
+                }
+            });
+
+            const videoStream = recCanvas.captureStream(30);
+            const audioStream = dest.stream;
+            
+            // รวมแทร็กภาพและแทร็กเสียงเข้าด้วยกัน
+            const combinedTracks = [...videoStream.getVideoTracks(), ...audioStream.getAudioTracks()];
+            const combinedStream = new MediaStream(combinedTracks);
+            
+            // ตั้งค่านามสกุลและตัวเข้ารหัสรองรับ iOS Safari และ Android/PC
+            let options = { mimeType: 'video/webm;codecs=h264,opus' };
             if (MediaRecorder.isTypeSupported('video/mp4')) {
                 options = { mimeType: 'video/mp4' };
-            } else if (MediaRecorder.isTypeSupported('video/webm; codecs=h264')) {
-                options = { mimeType: 'video/webm; codecs=h264' };
+            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+                options = { mimeType: 'video/webm;codecs=vp9,opus' };
+            } else if (MediaRecorder.isTypeSupported('video/webm')) {
+                options = { mimeType: 'video/webm' };
             }
 
-            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder = new MediaRecorder(combinedStream, options);
             recordedChunks = [];
 
             mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
                 cancelAnimationFrame(recordAnimFrame);
                 clearInterval(countdownInterval);
+                if(audioCtx && audioCtx.state !== 'closed') audioCtx.close();
                 
-                const blob = new Blob(recordedChunks, { type: options.mimeType });
+                const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/mp4' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -825,8 +851,6 @@
                     if(nw && nh) {
                         let baseW = cellW;
                         let baseH = (nh/nw) * cellW;
-                        
-                        // ปรับจุดกึ่งกลางของวิดีโอให้ตรงกับ DOM เป๊ะๆ
                         let cx = cellX + baseW/2;
                         let cy = cellY + baseH/2;
                         
@@ -838,7 +862,6 @@
                 });
                 
                 ctx.drawImage(staticCanvas, 0, 0);
-                
                 recordAnimFrame = requestAnimationFrame(drawFrame);
             }
 
@@ -859,7 +882,7 @@
 
         } catch (err) {
             console.error(err);
-            alert('เกิดข้อผิดพลาดในการสร้างวิดีโอ');
+            alert('เกิดข้อผิดพลาดในการสร้างวิดีโอ กรุณาลองใหม่อีกครั้ง');
             document.getElementById('recordingOverlay').style.display = 'none';
             setPreviewScale(originalScale, originalScale !== 1 && originalScale !== 0.5);
         }
@@ -870,6 +893,7 @@
             isRecording = false;
             clearTimeout(autoRecordTimeout);
             clearInterval(countdownInterval);
+            if(audioCtx && audioCtx.state !== 'closed') audioCtx.close();
             
             if (!autoSuccess) {
                 mediaRecorder.onstop = () => {
