@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GI Headline Template</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @font-face { font-family: 'CMU'; src: url('CMU-Bold.ttf') format('truetype'); font-weight: bold; }
+        @font-face { font-family: 'CMU'; src: url('CMU-Regular.ttf') format('truetype'); font-weight: normal; }
+        
+        body { 
+            font-family: 'CMU', 'Segoe UI', Tahoma, sans-serif; 
+            background-color: #121212; color: #fff; 
+            margin: 0; padding: 0; display: flex; justify-content: center; 
+        }
+        
+        .main-layout { 
+            display: flex; flex-direction: row; gap: 40px; 
+            justify-content: center; align-items: flex-start;
+            width: 100%; max-width: 1800px; padding: 20px; box-sizing: border-box; 
+        }
+        
+        .controls { width: 450px; background: #1e1e1e; padding: 20px; border-radius: 8px; z-index: 60; flex-shrink: 0; }
+        
+        .preview-side {
+            position: sticky; top: 20px;
+            display: flex; flex-direction: column; align-items: flex-start;
+            z-index: 100;
+        }
+
+        .preview-zoom-controls {
+            display: flex; gap: 10px; margin-bottom: 15px; align-items: center;
+            background: #1e1e1e; padding: 10px 20px; border-radius: 8px; width: 100%; box-sizing: border-box;
+        }
+
+        .preview-sticky-container { 
+            overflow: hidden; 
+            transition: all 0.3s ease;
+        }
+        
+        .preview-wrapper { 
+            width: 1080px; height: 1350px; 
+            transform-origin: top left; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); transition: all 0.3s ease; 
+        }
+        .canvas-area { 
+            width: 1080px; height: 1350px; background-color: #000; position: relative; 
+            overflow: hidden; transition: all 0.3s ease; 
+        }
+        .bg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: grid; }
+        
+        .grid-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        .grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+        .grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 35% 65%; } 
+        .grid-6 { 
+            grid-template-columns: 1fr 1fr !important; 
+            grid-template-rows: repeat(3, 482.66px) !important; 
+            height: 1448px !important; align-content: start !important; 
+        }
+        
+        .bg-cell { 
+            position: relative; overflow: hidden; display: flex; align-items: center; 
+            justify-content: center; border: 4px solid transparent; cursor: grab; background-color: #111; 
+        }
+        .bg-cell:active { cursor: grabbing; }
+        .bg-cell.active-cell { border-color: #f1c40f; z-index: 5; box-shadow: inset 0 0 20px rgba(241, 196, 15, 0.5); }
+        .bg-cell img, .bg-cell video { position: absolute; width: 100%; height: auto; pointer-events: none; }
+
+        .overlay-template { position: absolute; top: 0; left: 0; width: 1080px; height: 1350px; pointer-events: none; z-index: 10; }
+        .footer-layer { position: absolute; bottom: 0; left: 0; width: 1080px; height: 200px; z-index: 50; pointer-events: none; display: none; background-color: #000; }
+        .footer-layer img { width: 100%; height: 100%; object-fit: cover; }
+
+        .speaker-box { 
+            position: absolute; top: 715px; left: 54px; width: 276px; height: 283px; 
+            border: 6px solid; border-image: linear-gradient(to bottom, #aeffae, #1cfff3) 1; 
+            background-color: #222; z-index: 20; display: none; overflow: hidden; 
+            box-sizing: border-box; cursor: grab; 
+        }
+        .speaker-box:active { cursor: grabbing; }
+        .speaker-box img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+        .speaker-nameplate { 
+            position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to bottom, #15b7c1, #44bf84); 
+            color: #fff; text-align: center; padding: 12px 0; font-size: 20px; font-weight: bold; font-style: italic; 
+            z-index: 25; pointer-events: none; 
+        }
+
+        .text-layer { position: absolute; top: 1008px; left: 55px; width: 970px; z-index: 30; pointer-events: none; display: flex; flex-direction: column; gap: 5px; }
+        .headline-text { font-family: 'CMU', sans-serif; font-weight: bold; font-size: 68px; color: #4ade80; line-height: 0.95; margin-bottom: 8px; white-space: nowrap; }
+        .content-text { font-family: 'CMU', sans-serif; font-weight: normal; font-size: 51px; color: #ffffff; line-height: 1.15; white-space: nowrap; }
+        .source-text { font-family: 'CMU', sans-serif; font-weight: normal; font-size: 24px; color: #999999; margin-top: 10px; white-space: nowrap; }
+
+        .trailer-bg-footer { position: absolute; bottom: 0; left: 0; width: 100%; height: 600px; background-color: #0b1013; z-index: 5; pointer-events: none; display: none; }
+        .trailer-text-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; display: none; }
+        .trailer-game-name { position: absolute; left: 90px; top: 1590px; font-family: 'CMU', sans-serif; font-weight: bold; font-size: 54px; background: linear-gradient(to bottom, #84d0e9, #b2e1ad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; }
+        .trailer-desc-container { position: absolute; left: 85px; top: 1682px; display: flex; flex-direction: column; gap: 8px; }
+        .trailer-desc-text { font-family: 'CMU', sans-serif; font-weight: normal; font-size: 70px; color: #ffffff; white-space: nowrap; line-height: 1.15; }
+
+        .control-group { margin-bottom: 15px; background: #2a2a2a; padding: 15px; border-radius: 6px; }
+        label { display: block; margin-bottom: 5px; color: #ccc; font-size: 14px; font-weight: bold; }
+        input[type="text"], input[type="number"], input[type="file"], input[type="checkbox"], input[type="range"] { background: #222; border: 1px solid #555; color: #fff; border-radius: 4px; font-family: inherit; }
+        input[type="text"], input[type="number"], input[type="file"] { width: 100%; padding: 10px; box-sizing: border-box; }
+        input[type="range"] { width: 100%; }
+        .radio-group { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;}
+        .zoom-controls { display: flex; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 10px; background: #4ade80; color: #000; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #38bdf8; }
+        .btn-scale { flex: none; width: auto; padding: 8px 20px; }
+        .btn-export { background: #f1c40f; margin-top: 20px; width: 100%; padding: 15px; font-size: 18px; }
+        .btn-export:hover { background: #d4ac0d; }
+        .btn-export-video { background: #38bdf8; margin-top: 10px; width: 100%; padding: 12px; font-size: 16px; display: none; }
+        .btn-export-video:hover { background: #0284c7; }
+
+        /* มือถือ: ให้พรีวิวลอยอยู่ข้างบนสุดเสมอ (Sticky) และเครื่องมืออยู่ด้านล่าง */
+        @media (max-width: 1200px) {
+            .main-layout { flex-direction: column-reverse; align-items: center; padding: 10px; gap: 20px; }
+            .controls { width: 100%; max-width: 600px; }
+            .preview-side { position: sticky; top: 10px; align-items: center; width: 100%; background: #121212; padding-bottom: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+    
+    <div class="controls">
+        <h3 style="text-align: center; color: #f1c40f;">⚙️ เครื่องมือสร้างภาพ Gamer Inside</h3>
+        
+        <div class="control-group" style="border: 2px solid #4ade80;">
+            <label style="color: #4ade80; font-size: 16px;">📌 เลือกโหมดการทำงาน (Format)</label>
+            <div class="radio-group" style="margin-top: 10px;">
+                <label><input type="radio" name="formatType" value="facebook" checked> โพสต์ Facebook (1080x1350)</label>
+                <label><input type="radio" name="formatType" value="thumbnail"> Thumbnail เว็บไซต์ (1200x630)</label>
+                <label><input type="radio" name="formatType" value="trailer"> เปิดตัวเกมใหม่ (1638x2048)</label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>รูปแบบช่องพื้นหลัง (Background Layout)</label>
+            <div class="radio-group">
+                <label><input type="radio" name="gridType" value="1" checked> 1 รูปเต็มจอ</label>
+                <label><input type="radio" name="gridType" value="2"> 2 รูป (ซ้าย/ขวา)</label>
+                <label><input type="radio" name="gridType" value="4"> 4 รูป (ตาราง 2x2)</label>
+                <label id="grid6Label" style="display: none;"><input type="radio" name="gridType" value="6"> 6 รูป (ตาราง 2x3)</label>
+            </div>
+            
+            <div style="background: #111; padding: 10px; border-radius: 4px; border: 1px solid #4ade80;">
+                <label style="color: #4ade80;">📸 จัดการพื้นหลัง (เลือกช่องในจอก่อน)</label>
+                <input type="file" id="bgUpload" accept="image/*,video/*">
+                <small style="color:#888; display:block; margin-top:5px;">*คลิกช่องในจอให้ขอบเป็น <b>สีเหลือง</b> แล้วลากเมาส์ขยับ หรือกด <b>Ctrl+V</b> วางรูป</small>
+                
+                <div class="zoom-controls">
+                    <button onclick="changeBgZoom(0.1)">🔍 ซูมเข้า (+)</button>
+                    <button onclick="changeBgZoom(-0.1)">🔎 ซูมออก (-)</button>
+                </div>
+
+                <div id="videoTrimGroup" style="display: none; margin-top: 15px; border-top: 1px dashed #555; padding-top: 10px;">
+                    <label style="color: #f1c40f;">✂️ ตัดขอบวิดีโอ (Trim Video)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <div><small>เริ่ม (วินาที)</small><input type="number" id="trimStart" step="0.1" value="0"></div>
+                        <div><small>จบ (วินาที)</small><input type="number" id="trimEnd" step="0.1" value="0"></div>
+                    </div>
+                </div>
+
+                <div id="videoPlaybarGroup" style="display: none; margin-top: 15px; padding-top: 5px;">
+                    <label style="color: #38bdf8;">▶️ สถานะวิดีโอในช่องนี้</label>
+                    <input type="range" id="videoSeekbar" min="0" step="0.01" value="0" style="pointer-events: none;">
+                </div>
+            </div>
+        </div>
+
+        <div id="fbSpecificControls">
+            <div class="control-group">
+                <label>รูปแบบข่าว Facebook</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="layoutType" value="no-speaker" checked> ข่าวทั่วไป</label>
+                    <label><input type="radio" name="layoutType" value="with-speaker"> ข่าวสัมภาษณ์</label>
+                </div>
+                
+                <div id="speakerUploadGroup" style="display: none; background: #111; padding: 10px; border-radius: 4px; border: 1px solid #15b7c1;">
+                    <label style="color: #15b7c1;">👤 อัปโหลดรูปคนพูด (ขยับซูมได้แล้ว!)</label>
+                    <input type="file" id="speakerUpload" accept="image/*">
+                    <div class="zoom-controls">
+                        <button onclick="changeSpkZoom(0.1)" style="background: #15b7c1; color: #fff;">🔍 ซูมเข้า</button>
+                        <button onclick="changeSpkZoom(-0.1)" style="background: #15b7c1; color: #fff;">🔎 ซูมออก</button>
+                    </div>
+                    <label style="margin-top: 10px;">ชื่อคนพูด</label>
+                    <input type="text" id="speakerNameInput" value="น้ำแมน Gamer Inside">
+                </div>
+            </div>
+
+            <div class="control-group" style="background: #331500; border: 1px solid #ff7b00;">
+                <label style="display: flex; align-items: center; gap: 10px; color: #ff7b00; cursor: pointer;">
+                    <input type="checkbox" id="footerToggle" style="width: auto;">
+                    เปิดใช้งานส่วนแบนเนอร์ Footer (1080x200)
+                </label>
+                <div id="footerUploadContainer" style="display: none; margin-top: 10px;">
+                    <label>อัปโหลดรูป Footer</label>
+                    <input type="file" id="footerUpload" accept="image/*">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>พาดหัวข่าว</label>
+                <input type="text" id="headlineInput" value="หัวข้อข่าวฟ้อนต์ CMU ขนาด 100pt">
+            </div>
+
+            <div class="control-group">
+                <label>เนื้อหาข่าวบรรทัดที่ 1</label>
+                <input type="text" id="content1Input" value="เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76">
+                <label style="margin-top: 5px;">เนื้อหาข่าวบรรทัดที่ 2</label>
+                <input type="text" id="content2Input" value="เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76">
+                <label style="margin-top: 5px;">เนื้อหาข่าวบรรทัดที่ 3</label>
+                <input type="text" id="content3Input" value="เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76">
+            </div>
+
+            <div class="control-group">
+                <label>ที่มา / แหล่งอ้างอิง</label>
+                <input type="text" id="sourceInput" value="ที่มา - gamerinsideth.com / รูปภาพ - Lasthope Studio">
+            </div>
+        </div>
+
+        <div id="trailerSpecificControls" style="display: none;">
+            <div class="control-group" style="background: #112233; border: 1px solid #38bdf8;">
+                <label style="color: #38bdf8;">สลับเวอร์ชั่นหัวข้อเลเยอร์บนสุด</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="trailerOverlayType" value="NewTrailer copy.png" checked> ตัวอย่างใหม่</label>
+                    <label><input type="radio" name="trailerOverlayType" value="NewGame copy.png"> เปิดตัวเกมใหม่</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>ชื่อเกม (บรรทัดแรกสี Gradient)</label>
+                <input type="text" id="trailerGameInput" value="ชื่อเกมขนาด 54 pt ฟ้อนต์ CMU Bold">
+            </div>
+
+            <div class="control-group">
+                <label>ข้อความแนะนำเกม บรรทัดที่ 1</label>
+                <input type="text" id="trailerDesc1Input" value="ข้อความแนะนำเกมขนาด 70 pt CMU Regular">
+                <label style="margin-top: 5px;">ข้อความแนะนำเกม บรรทัดที่ 2</label>
+                <input type="text" id="trailerDesc2Input" value="ข้อความแนะนำเกมขนาด 70 pt CMU Regular">
+                <label style="margin-top: 5px;">ข้อความแนะนำเกม บรรทัดที่ 3</label>
+                <input type="text" id="trailerDesc3Input" value="ข้อความแนะนำเกมขนาด 70 pt CMU Regular">
+            </div>
+        </div>
+
+        <button class="btn-export" onclick="exportImage()">💾 ดาวน์โหลดรูปภาพชิ้นงาน</button>
+        <button class="btn-export-video" id="btnExportVideo" onclick="exportVideoFile()">📥 ดาวน์โหลดไฟล์วิดีโอช่องที่เลือก</button>
+    </div>
+
+    <div class="preview-side">
+        <div class="preview-zoom-controls">
+            <label style="color: #4ade80; margin: 0;">🔍 ขนาดพรีวิว:</label>
+            <button onclick="setPreviewScale(0.5)" id="btnScale50" class="btn-scale" style="background: #f1c40f;">50%</button>
+            <button onclick="setPreviewScale(1)" id="btnScale100" class="btn-scale" style="background: #4ade80;">100%</button>
+        </div>
+
+        <div class="preview-sticky-container" id="previewStickyContainer">
+            <div class="preview-wrapper" id="previewWrapper">
+                <div class="canvas-area" id="captureArea">
+                    <div class="bg-layer grid-1" id="bgLayer"></div>
+                    <div class="trailer-bg-footer" id="trailerBgFooter"></div>
+                    <img src="FACEBOOKNEWS2026 copy.png" class="overlay-template" id="overlayTemplate" onerror="this.style.display='none';">
+
+                    <div class="speaker-box" id="speakerBox">
+                        <img id="speakerImg" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='276' height='283' viewBox='0 0 276 283'%3E%3Crect width='100%25' height='100%25' fill='%23555'/%3E%3Ctext x='50%25' y='50%25' fill='%23eee' font-size='24' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'%3ESpeaker%3C/text%3E%3C/svg%3E">
+                        <div class="speaker-nameplate" id="speakerNameDisplay">น้ำแมน Gamer Inside</div>
+                    </div>
+
+                    <div class="text-layer" id="textLayer">
+                        <div class="headline-text" id="dispHeadline">หัวข้อข่าวฟ้อนต์ CMU ขนาด 100pt</div>
+                        <div class="content-text" id="dispContent1">เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76</div>
+                        <div class="content-text" id="dispContent2">เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76</div>
+                        <div class="content-text" id="dispContent3">เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76</div>
+                        <div class="source-text" id="dispSource">ที่มา - gamerinsideth.com / รูปภาพ - Lasthope Studio</div>
+                    </div>
+
+                    <div class="trailer-text-layer" id="trailerTextLayer">
+                        <div class="trailer-game-name" id="dispTrailerGame">ชื่อเกมขนาด 54 pt ฟ้อนต์ CMU Bold</div>
+                        <div class="trailer-desc-container">
+                            <div class="trailer-desc-text" id="dispTrailerDesc1">ข้อความแนะนำเกมขนาด 70 pt CMU Regular</div>
+                            <div class="trailer-desc-text" id="dispTrailerDesc2">ข้อความแนะนำเกมขนาด 70 pt CMU Regular</div>
+                            <div class="trailer-desc-text" id="dispTrailerDesc3">ข้อความแนะนำเกมขนาด 70 pt CMU Regular</div>
+                        </div>
+                    </div>
+
+                    <div class="footer-layer" id="footerLayer">
+                        <img id="footerImg" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1080' height='200' viewBox='0 0 1080 200'%3E%3Crect width='100%25' height='100%25' fill='%23222'/%3E%3Ctext x='50%25' y='50%25' fill='%23eee' font-size='36' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'%3E1080 x 200 Footer Banner%3C/text%3E%3C/svg%3E">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const formatRadios = document.querySelectorAll('input[name="formatType"]');
+    const fbControls = document.getElementById('fbSpecificControls');
+    const trailerControls = document.getElementById('trailerSpecificControls');
+    const canvasArea = document.getElementById('captureArea');
+    const previewWrapper = document.getElementById('previewWrapper');
+    const previewContainer = document.getElementById('previewStickyContainer');
+    const overlayTemplate = document.getElementById('overlayTemplate');
+    const footerToggle = document.getElementById('footerToggle');
+    const footerLayer = document.getElementById('footerLayer');
+    const textLayer = document.getElementById('textLayer');
+    const trailerTextLayer = document.getElementById('trailerTextLayer');
+    const trailerBgFooter = document.getElementById('trailerBgFooter');
+    const grid6Label = document.getElementById('grid6Label');
+    const speakerBox = document.getElementById('speakerBox');
+    const btnExportVideo = document.getElementById('btnExportVideo');
+
+    let currentFormat = 'facebook'; 
+    let manualScale = 0.5; 
+
+    function setPreviewScale(scale) {
+        manualScale = scale;
+        document.getElementById('btnScale50').style.background = scale === 0.5 ? '#f1c40f' : '#4ade80';
+        document.getElementById('btnScale100').style.background = scale === 1 ? '#f1c40f' : '#4ade80';
+        updateLayoutBounds();
+    }
+
+    function updateLayoutBounds() {
+        let isFooter = footerToggle.checked && currentFormat === 'facebook';
+        let targetW = 1080;
+        let targetH = 1350;
+
+        if (currentFormat === 'thumbnail') {
+            targetW = 1200; targetH = 630;
+        } else if (currentFormat === 'trailer') {
+            targetW = 1638; targetH = 2048;
+        } else {
+            targetH = isFooter ? 1550 : 1350;
+        }
+
+        canvasArea.style.width = targetW + 'px';
+        canvasArea.style.height = targetH + 'px';
+        previewWrapper.style.width = targetW + 'px';
+        previewWrapper.style.height = targetH + 'px';
+
+        previewWrapper.style.transform = `scale(${manualScale})`;
+        previewContainer.style.width = (targetW * manualScale) + 'px';
+        previewContainer.style.height = (targetH * manualScale) + 'px';
+    }
+
+    formatRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            currentFormat = e.target.value;
+            if (currentFormat === 'thumbnail') {
+                fbControls.style.display = 'none'; trailerControls.style.display = 'none';
+                textLayer.style.display = 'none'; trailerTextLayer.style.display = 'none';
+                speakerBox.style.display = 'none'; footerLayer.style.display = 'none';
+                trailerBgFooter.style.display = 'none'; grid6Label.style.display = 'none';
+                overlayTemplate.src = 'Cover.png'; overlayTemplate.style.width = '1200px'; overlayTemplate.style.height = '630px';
+            } else if (currentFormat === 'trailer') {
+                fbControls.style.display = 'none'; trailerControls.style.display = 'block';
+                textLayer.style.display = 'none'; trailerTextLayer.style.display = 'block';
+                speakerBox.style.display = 'none'; footerLayer.style.display = 'none';
+                trailerBgFooter.style.display = 'block'; grid6Label.style.display = 'inline-block';
+                overlayTemplate.src = document.querySelector('input[name="trailerOverlayType"]:checked').value; 
+                overlayTemplate.style.width = '1638px'; overlayTemplate.style.height = '2048px';
+            } else {
+                fbControls.style.display = 'block'; trailerControls.style.display = 'none';
+                textLayer.style.display = 'flex'; trailerTextLayer.style.display = 'none';
+                trailerBgFooter.style.display = 'none'; grid6Label.style.display = 'none';
+                if(document.querySelector('input[name="layoutType"]:checked').value === 'with-speaker') speakerBox.style.display = 'block';
+                if(footerToggle.checked) footerLayer.style.display = 'block';
+                overlayTemplate.src = 'FACEBOOKNEWS2026 copy.png'; overlayTemplate.style.width = '1080px'; overlayTemplate.style.height = '1350px'; 
+            }
+            updateLayoutBounds();
+        });
+    });
+
+    footerToggle.addEventListener('change', (e) => {
+        document.getElementById('footerUploadContainer').style.display = e.target.checked ? 'block' : 'none';
+        footerLayer.style.display = e.target.checked ? 'block' : 'none';
+        updateLayoutBounds();
+    });
+
+    document.getElementById('footerUpload').addEventListener('change', function(e) {
+        if (e.target.files[0]) document.getElementById('footerImg').src = URL.createObjectURL(e.target.files[0]);
+    });
+
+    document.querySelectorAll('input[name="trailerOverlayType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (currentFormat === 'trailer') overlayTemplate.src = e.target.value;
+        });
+    });
+
+    const layoutRadios = document.querySelectorAll('input[name="layoutType"]');
+    const speakerUploadGroup = document.getElementById('speakerUploadGroup');
+
+    layoutRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'with-speaker') {
+                speakerUploadGroup.style.display = 'block';
+                if(currentFormat === 'facebook') speakerBox.style.display = 'block';
+            } else {
+                speakerUploadGroup.style.display = 'none';
+                speakerBox.style.display = 'none';
+            }
+        });
+    });
+
+    const bindText = (inputId, dispId) => {
+        document.getElementById(inputId).addEventListener('input', (e) => {
+            document.getElementById(dispId).innerText = e.target.value;
+        });
+    };
+    bindText('headlineInput', 'dispHeadline'); bindText('content1Input', 'dispContent1'); bindText('content2Input', 'dispContent2');
+    bindText('content3Input', 'dispContent3'); bindText('sourceInput', 'dispSource'); bindText('speakerNameInput', 'speakerNameDisplay');
+    bindText('trailerGameInput', 'dispTrailerGame'); bindText('trailerDesc1Input', 'dispTrailerDesc1'); 
+    bindText('trailerDesc2Input', 'dispTrailerDesc2'); bindText('trailerDesc3Input', 'dispTrailerDesc3');
+
+    let spkScale = 1; let spkX = 0; let spkY = 0;
+    let isSpkDragging = false; let spkStartX, spkStartY;
+    const spkImg = document.getElementById('speakerImg');
+
+    document.getElementById('speakerUpload').addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            spkImg.src = URL.createObjectURL(e.target.files[0]);
+            spkScale = 1; spkX = 0; spkY = 0; updateSpkTransform();
+        }
+    });
+
+    function changeSpkZoom(delta) {
+        spkScale += delta; if (spkScale < 0.1) spkScale = 0.1; updateSpkTransform();
+    }
+    function updateSpkTransform() { spkImg.style.transform = `translate(${spkX}px, ${spkY}px) scale(${spkScale})`; }
+
+    const startSpkDrag = (e) => {
+        isSpkDragging = true;
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        spkStartX = (clientX / manualScale) - spkX; spkStartY = (clientY / manualScale) - spkY;
+        e.stopPropagation(); 
+    };
+    const doSpkDrag = (e) => {
+        if (!isSpkDragging) return; e.preventDefault();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        spkX = (clientX / manualScale) - spkStartX; spkY = (clientY / manualScale) - spkStartY;
+        updateSpkTransform();
+    };
+    const endSpkDrag = () => { isSpkDragging = false; };
+
+    speakerBox.addEventListener('mousedown', startSpkDrag); window.addEventListener('mousemove', doSpkDrag); window.addEventListener('mouseup', endSpkDrag);
+    speakerBox.addEventListener('touchstart', startSpkDrag, {passive: false}); window.addEventListener('touchmove', doSpkDrag, {passive: false}); window.addEventListener('touchend', endSpkDrag);
+
+    const bgLayer = document.getElementById('bgLayer');
+    const videoTrimGroup = document.getElementById('videoTrimGroup');
+    const trimStartInp = document.getElementById('trimStart');
+    const trimEndInp = document.getElementById('trimEnd');
+    const videoPlaybarGroup = document.getElementById('videoPlaybarGroup');
+    const videoSeekbar = document.getElementById('videoSeekbar');
+
+    let activeCellIndex = 0;
+    const MAX_CELLS = 6;
+    let cellsData = [];
+    let rawVideoFiles = []; // เก็บไฟล์วิดีโอดั้งเดิมไว้ให้กดดาวน์โหลด
+    for(let i=0; i<MAX_CELLS; i++) {
+        cellsData.push({ el: null, type: 'none', scale: 1, x: 0, y: 0, trimStart: 0, trimEnd: 0 });
+        rawVideoFiles.push(null);
+    }
+
+    function renderGrid(count) {
+        bgLayer.className = `bg-layer grid-${count}`;
+        bgLayer.innerHTML = '';
+        
+        for(let i=0; i<count; i++) {
+            const cellDiv = document.createElement('div');
+            cellDiv.className = `bg-cell ${i === activeCellIndex ? 'active-cell' : ''}`;
+            cellDiv.dataset.index = i;
+            
+            if(cellsData[i].el) {
+                cellDiv.appendChild(cellsData[i].el);
+                updateCellTransform(i);
+            }
+            
+            cellDiv.addEventListener('mousedown', (e) => { selectCell(i, e); startBgDrag(e); });
+            cellDiv.addEventListener('touchstart', (e) => { selectCell(i, e); startBgDrag(e); }, {passive: false});
+            
+            bgLayer.appendChild(cellDiv);
+        }
+        
+        if (activeCellIndex >= count) selectCell(0);
+        else updateTrimAndPlaybarUI();
+    }
+
+    document.querySelectorAll('input[name="gridType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => { renderGrid(parseInt(e.target.value)); });
+    });
+
+    function selectCell(index) {
+        activeCellIndex = index;
+        document.querySelectorAll('.bg-cell').forEach(cell => {
+            if(parseInt(cell.dataset.index) === index) cell.classList.add('active-cell');
+            else cell.classList.remove('active-cell');
+        });
+        updateTrimAndPlaybarUI();
+    }
+
+    function updateTrimAndPlaybarUI() {
+        const data = cellsData[activeCellIndex];
+        if (data && data.type === 'video') {
+            videoTrimGroup.style.display = 'block';
+            videoPlaybarGroup.style.display = 'block';
+            btnExportVideo.style.display = 'block'; // แสดงปุ่มโหลดวิดีโอต้นฉบับ
+            trimStartInp.value = data.trimStart;
+            trimEndInp.value = data.trimEnd;
+            if(data.el && data.el.duration) {
+                videoSeekbar.max = data.el.duration;
+            }
+        } else {
+            videoTrimGroup.style.display = 'none';
+            videoPlaybarGroup.style.display = 'none';
+            btnExportVideo.style.display = 'none';
+        }
+    }
+
+    trimStartInp.addEventListener('input', (e) => {
+        cellsData[activeCellIndex].trimStart = parseFloat(e.target.value) || 0;
+        if(cellsData[activeCellIndex].el) cellsData[activeCellIndex].el.currentTime = cellsData[activeCellIndex].trimStart;
+    });
+    trimEndInp.addEventListener('input', (e) => {
+        cellsData[activeCellIndex].trimEnd = parseFloat(e.target.value) || 0;
+    });
+
+    function loopVideoEngine() {
+        cellsData.forEach((data, index) => {
+            if(data.type === 'video' && data.el) {
+                const vid = data.el;
+                const end = data.trimEnd;
+                const start = data.trimStart;
+                
+                if (end > 0 && vid.currentTime >= end) {
+                    vid.currentTime = start;
+                    vid.play();
+                } else if (vid.currentTime < start) {
+                    vid.currentTime = start;
+                }
+                
+                if (index === activeCellIndex && !vid.paused) {
+                    videoSeekbar.value = vid.currentTime;
+                }
+            }
+        });
+        requestAnimationFrame(loopVideoEngine);
+    }
+    requestAnimationFrame(loopVideoEngine);
+
+    function handleBackgroundFile(file) {
+        if (!file) return;
+        const targetDiv = document.querySelector(`.bg-cell[data-index="${activeCellIndex}"]`);
+        if(!targetDiv) return;
+
+        targetDiv.innerHTML = '';
+        let data = cellsData[activeCellIndex];
+        data.scale = 1; data.x = 0; data.y = 0; data.trimStart = 0; data.trimEnd = 0;
+        
+        let newEl = null;
+        if (file.type.startsWith('video/')) {
+            rawVideoFiles[activeCellIndex] = file; // บันทึกไฟล์วิดีโอต้นฉบับ
+            newEl = document.createElement('video');
+            newEl.src = URL.createObjectURL(file);
+            newEl.autoplay = true; newEl.loop = true; newEl.muted = true;
+            newEl.onloadedmetadata = function() {
+                data.trimEnd = newEl.duration;
+                if(activeCellIndex === parseInt(targetDiv.dataset.index)) updateTrimAndPlaybarUI();
+            };
+            data.type = 'video';
+        } else if (file.type.startsWith('image/')) {
+            rawVideoFiles[activeCellIndex] = null;
+            newEl = document.createElement('img');
+            newEl.src = URL.createObjectURL(file);
+            data.type = 'image';
+        } else return; 
+        
+        data.el = newEl;
+        targetDiv.appendChild(newEl);
+        updateCellTransform(activeCellIndex);
+        updateTrimAndPlaybarUI();
+    }
+
+    document.getElementById('bgUpload').addEventListener('change', function(e) {
+        handleBackgroundFile(e.target.files[0]);
+        this.value = '';
+    });
+
+    window.addEventListener('paste', function(e) {
+        if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                handleBackgroundFile(items[i].getAsFile());
+                break;
+            }
+        }
+    });
+
+    function changeBgZoom(delta) {
+        let data = cellsData[activeCellIndex];
+        data.scale += delta;
+        if (data.scale < 0.1) data.scale = 0.1;
+        updateCellTransform(activeCellIndex);
+    }
+    
+    function updateCellTransform(index) {
+        let data = cellsData[index];
+        if (data.el) data.el.style.transform = `translate(${data.x}px, ${data.y}px) scale(${data.scale})`;
+    }
+
+    let isBgDragging = false; 
+    let bgStartX, bgStartY;
+
+    const startBgDrag = (e) => {
+        let data = cellsData[activeCellIndex];
+        if (!data.el) return;
+        isBgDragging = true;
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        bgStartX = (clientX / manualScale) - data.x;
+        bgStartY = (clientY / manualScale) - data.y;
+    };
+    const doBgDrag = (e) => {
+        if (!isBgDragging) return;
+        let data = cellsData[activeCellIndex];
+        if (!data.el) return;
+        e.preventDefault();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        data.x = (clientX / manualScale) - bgStartX; 
+        data.y = (clientY / manualScale) - bgStartY;
+        updateCellTransform(activeCellIndex);
+    };
+    const endBgDrag = () => { isBgDragging = false; };
+
+    window.addEventListener('mousemove', doBgDrag); window.addEventListener('mouseup', endBgDrag);
+    window.addEventListener('touchmove', doBgDrag, {passive: false}); window.addEventListener('touchend', endBgDrag);
+
+    // Initial render
+    renderGrid(1);
+    updateLayoutBounds();
+
+    // ฟังก์ชั่นดาวน์โหลดไฟล์วิดีโอต้นฉบับเต็มๆ ลงเครื่อง
+    function exportVideoFile() {
+        const file = rawVideoFiles[activeCellIndex];
+        if (!file) {
+            alert("ช่องที่เลือกนี้ไม่ใช่ไฟล์วิดีโอครับ");
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(file);
+        link.download = file.name || `GamerInside-Video-Cell${activeCellIndex + 1}.mp4`;
+        link.click();
+    }
+
+    function exportImage() {
+        document.querySelectorAll('.bg-cell').forEach(cell => cell.classList.remove('active-cell'));
+        
+        let targetW = 1080;
+        let targetH = 1350;
+        let isFooter = footerToggle.checked && currentFormat === 'facebook';
+
+        if (currentFormat === 'thumbnail') {
+            targetW = 1200; targetH = 630;
+        } else if (currentFormat === 'trailer') {
+            targetW = 1638; targetH = 2048;
+        } else {
+            targetH = isFooter ? 1550 : 1350;
+        }
+
+        const originalScale = manualScale;
+        previewWrapper.style.transform = 'scale(1)';
+        previewContainer.style.width = targetW + 'px';
+        previewContainer.style.height = targetH + 'px';
+
+        let mimeType = currentFormat === 'thumbnail' ? 'image/webp' : 'image/jpeg';
+        let ext = currentFormat === 'thumbnail' ? 'webp' : 'jpeg';
+        let filename = 'GamerInside-News';
+        if (currentFormat === 'thumbnail') filename = 'GamerInside-Thumbnail';
+        if (currentFormat === 'trailer') filename = 'GamerInside-NewTrailer';
+
+        setTimeout(() => {
+            html2canvas(canvasArea, { 
+                scale: 1, 
+                width: targetW, 
+                height: targetH, 
+                useCORS: true, 
+                backgroundColor: '#000000' 
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `${filename}.${ext}`;
+                link.href = canvas.toDataURL(mimeType, 0.95);
+                link.click();
+                
+                setPreviewScale(originalScale);
+                const activeDiv = document.querySelector(`.bg-cell[data-index="${activeCellIndex}"]`);
+                if(activeDiv) activeDiv.classList.add('active-cell');
+            }).catch(err => {
+                console.error("Export error:", err);
+                alert("เกิดข้อผิดพลาดในการดาวน์โหลดรูปภาพ กรุณาลองอีกครั้ง");
+                setPreviewScale(originalScale);
+            });
+        }, 400);
+    }
+</script>
+</body>
+</html>
