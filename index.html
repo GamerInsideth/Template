@@ -130,9 +130,9 @@
 <body>
 
 <div id="recordingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-    <h2 style="color:#4ade80; font-family:'CMU', sans-serif; font-size:48px; margin-bottom: 10px;">🔴 กำลังบันทึกวิดีโออัตโนมัติ...</h2>
-    <p id="recordTimeDisplay" style="font-size:32px; font-family:'CMU', sans-serif; color: #f1c40f;">เหลือเวลาอีก ... วินาที</p>
-    <p style="font-size:18px; font-family:'CMU', sans-serif; color: #ccc; margin-top: 20px;">เมื่อเสร็จสิ้น ระบบจะดาวน์โหลดไฟล์ให้ทันที</p>
+    <h2 style="color:#4ade80; font-family:'CMU', sans-serif; font-size:48px; margin-bottom: 10px; text-align: center;">🔴 กำลังบันทึกวิดีโออัตโนมัติ...</h2>
+    <p id="recordTimeDisplay" style="font-size:32px; font-family:'CMU', sans-serif; color: #f1c40f; text-align: center;">เหลือเวลาอีก ... วินาที</p>
+    <p style="font-size:18px; font-family:'CMU', sans-serif; color: #ccc; margin-top: 20px; text-align: center;">เมื่อเสร็จสิ้น ระบบจะดาวน์โหลดไฟล์ให้ทันที</p>
     <button onclick="cancelExportVideo()" style="background:#e74c3c; color:#fff; font-size:18px; padding:10px 30px; margin-top:30px; border-radius:8px; cursor:pointer; border:none; font-family:'CMU', sans-serif;">❌ ยกเลิกการบันทึก</button>
 </div>
 
@@ -356,7 +356,6 @@
         let idealScale = availableW / targetW;
         if(idealScale > 1) idealScale = 1;
 
-        // บังคับให้ขนาดเล็กลงไปอีก 50% บนหน้าจอมือถือ
         if (containerW <= 1200) {
             idealScale = idealScale * 0.5;
         }
@@ -366,9 +365,14 @@
 
     function setPreviewScale(scale, isAuto = false) {
         manualScale = scale;
-        document.getElementById('btnScaleAuto').style.background = isAuto ? '#f1c40f' : '#4ade80';
-        document.getElementById('btnScale50').style.background = (!isAuto && scale === 0.5) ? '#f1c40f' : '#4ade80';
-        document.getElementById('btnScale100').style.background = (!isAuto && scale === 1) ? '#f1c40f' : '#4ade80';
+        const btnAuto = document.getElementById('btnScaleAuto');
+        const btn50 = document.getElementById('btnScale50');
+        const btn100 = document.getElementById('btnScale100');
+        
+        if (btnAuto) btnAuto.style.background = isAuto ? '#f1c40f' : '#4ade80';
+        if (btn50) btn50.style.background = (!isAuto && scale === 0.5) ? '#f1c40f' : '#4ade80';
+        if (btn100) btn100.style.background = (!isAuto && scale === 1) ? '#f1c40f' : '#4ade80';
+        
         updateLayoutBounds();
     }
 
@@ -713,7 +717,6 @@
             return;
         }
 
-        // 1. คำนวณเวลาบันทึกอัตโนมัติจากช่องที่ต้องใช้นานที่สุด
         let maxDuration = 0;
         cellsData.forEach(d => {
             if (d.type === 'video' && d.el) {
@@ -721,11 +724,10 @@
                 let start = d.trimStart || 0;
                 let dur = end - start;
                 if (dur > maxDuration) maxDuration = dur;
-                // รีเซ็ตวิดีโอกลับไปจุดเริ่มต้นเพื่อเตรียมอัด
                 d.el.currentTime = start;
             }
         });
-        if (maxDuration <= 0) maxDuration = 5; // กันเหนียวไว้อย่างน้อย 5 วิ
+        if (maxDuration <= 0) maxDuration = 5; 
 
         const originalScale = manualScale;
         let targetW = 1080; let targetH = 1350;
@@ -741,23 +743,36 @@
         bgLayer.style.opacity = '0';
         document.querySelectorAll('.bg-cell').forEach(c => c.classList.remove('active-cell'));
         
-        // เตรียมหน้าจอตั้งเวลาโหลด
+        // ทำให้พื้นหลังใสเพื่อให้แคปเทมเพลตได้ทะลุถึงวิดีโอ
+        const canvasAreaEl = document.getElementById('captureArea');
+        const oldBgColor = canvasAreaEl.style.backgroundColor;
+        canvasAreaEl.style.backgroundColor = 'transparent';
+        
         document.getElementById('recordingOverlay').style.display = 'flex';
         let timeLeft = maxDuration;
         document.getElementById('recordTimeDisplay').innerText = `เหลือเวลาอีก ${Math.ceil(timeLeft)} วินาที`;
 
         try {
-            const staticCanvas = await html2canvas(canvasArea, { 
+            const staticCanvas = await html2canvas(canvasAreaEl, { 
                 scale: 1, width: targetW, height: targetH, 
                 backgroundColor: null, useCORS: true 
             });
 
+            // คืนค่าพื้นหลังเดิม
+            canvasAreaEl.style.backgroundColor = oldBgColor || '#000';
             bgLayer.style.opacity = '1'; 
             
             const recCanvas = document.createElement('canvas');
             recCanvas.width = targetW;
             recCanvas.height = targetH;
             const ctx = recCanvas.getContext('2d');
+
+            if (!recCanvas.captureStream) {
+                alert("เบราว์เซอร์ของคุณไม่อนุญาตให้อัดหน้าจอ Canvas แนะนำให้ใช้ Google Chrome / Safari เวอร์ชั่นใหม่ บนคอมพิวเตอร์ครับ");
+                document.getElementById('recordingOverlay').style.display = 'none';
+                setPreviewScale(originalScale, originalScale !== 1 && originalScale !== 0.5);
+                return;
+            }
 
             const stream = recCanvas.captureStream(30); 
             
@@ -810,8 +825,10 @@
                     if(nw && nh) {
                         let baseW = cellW;
                         let baseH = (nh/nw) * cellW;
-                        let cx = cellX + cellW/2;
-                        let cy = cellY + cellH/2;
+                        
+                        // ปรับจุดกึ่งกลางของวิดีโอให้ตรงกับ DOM เป๊ะๆ
+                        let cx = cellX + baseW/2;
+                        let cy = cellY + baseH/2;
                         
                         ctx.translate(cx + d.x, cy + d.y);
                         ctx.scale(d.scale, d.scale);
@@ -829,7 +846,6 @@
             mediaRecorder.start();
             drawFrame();
 
-            // นับถอยหลังบนหน้าจอ
             countdownInterval = setInterval(() => {
                 timeLeft -= 1;
                 if (timeLeft > 0) {
@@ -837,9 +853,8 @@
                 }
             }, 1000);
 
-            // สั่งหยุดและโหลดไฟล์อัตโนมัติเมื่อหมดเวลา
             autoRecordTimeout = setTimeout(() => {
-                if(isRecording) cancelExportVideo(true); // true = หยุดแบบบันทึกสำเร็จ
+                if(isRecording) cancelExportVideo(true); 
             }, maxDuration * 1000);
 
         } catch (err) {
@@ -850,14 +865,12 @@
         }
     }
 
-    // หยุดบันทึกกลางคัน หรือถูกเรียกเมื่อหมดเวลา
     function cancelExportVideo(autoSuccess = false) {
         if(mediaRecorder && mediaRecorder.state !== 'inactive') {
             isRecording = false;
             clearTimeout(autoRecordTimeout);
             clearInterval(countdownInterval);
             
-            // ถ้ากดปุ่มยกเลิกเอง จะทิ้งไฟล์ แต่ถ้าโหลดครบเวลา จะเซฟ
             if (!autoSuccess) {
                 mediaRecorder.onstop = () => {
                     document.getElementById('recordingOverlay').style.display = 'none';
