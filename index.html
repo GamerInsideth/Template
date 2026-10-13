@@ -71,7 +71,6 @@
         .footer-layer { position: absolute; bottom: 0; left: 0; width: 1080px; height: 200px; z-index: 50; pointer-events: none; display: none; background-color: #000; }
         .footer-layer img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* ระบบ Speaker Box ใหม่ */
         .speaker-box { 
             position: absolute; top: 715px; left: 54px; width: 276px; height: 283px; 
             z-index: 20; display: none; cursor: grab; background-color: transparent;
@@ -747,7 +746,6 @@
                 let start = d.trimStart || 0;
                 let dur = end - start;
                 if (dur > maxDuration) maxDuration = dur;
-                // สั่งหยุดวิดีโอไว้ก่อนเพื่อป้องกันเสียงไปก่อนภาพตอนอัด
                 d.el.pause(); 
                 d.el.currentTime = start;
                 d.el.muted = false; 
@@ -769,16 +767,21 @@
         bgLayer.style.opacity = '0';
         document.querySelectorAll('.bg-cell').forEach(c => c.classList.remove('active-cell'));
         
+        const canvasAreaEl = document.getElementById('captureArea');
+        const oldBgColor = canvasAreaEl.style.backgroundColor;
+        canvasAreaEl.style.backgroundColor = 'transparent';
+        
         document.getElementById('recordingOverlay').style.display = 'flex';
         let timeLeft = maxDuration;
         document.getElementById('recordTimeDisplay').innerText = `เหลือเวลาอีก ${Math.ceil(timeLeft)} วินาที`;
 
         try {
-            const staticCanvas = await html2canvas(canvasArea, { 
+            const staticCanvas = await html2canvas(canvasAreaEl, { 
                 scale: 1, width: targetW, height: targetH, 
                 backgroundColor: null, useCORS: true 
             });
 
+            canvasAreaEl.style.backgroundColor = oldBgColor || '#000';
             bgLayer.style.opacity = '1'; 
             
             const recCanvas = document.createElement('canvas');
@@ -882,7 +885,6 @@
 
             isRecording = true;
             
-            // เริ่มต้นบันทึกก่อน ค่อยสั่งเล่นวิดีโอ (ป้องกันเสียงไปก่อนภาพ)
             mediaRecorder.start();
             cellsData.forEach(d => {
                 if (d.type === 'video' && d.el) {
@@ -947,16 +949,19 @@
         previewContainer.style.width = targetW + 'px';
         previewContainer.style.height = targetH + 'px';
 
-        // บังคับแปลงเป็น PNG เพื่อตัดปัญหาขอบดำจาก JPG
-        let mimeType = 'image/png';
-        let ext = 'png';
+        let mimeType = currentFormat === 'thumbnail' ? 'image/webp' : 'image/png';
+        let ext = currentFormat === 'thumbnail' ? 'webp' : 'png';
         let filename = 'GamerInside-News';
         if (currentFormat === 'thumbnail') filename = 'GamerInside-Thumbnail';
         if (currentFormat === 'trailer') filename = 'GamerInside-NewTrailer';
 
         setTimeout(() => {
             html2canvas(canvasArea, { 
-                scale: 1, width: targetW, height: targetH, useCORS: true, backgroundColor: null 
+                scale: 1, 
+                width: targetW, 
+                height: targetH, 
+                useCORS: true, 
+                backgroundColor: null 
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `${filename}.${ext}`;
