@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gamer Inside News Template</title>
+    <title>GI Headline Template</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @font-face { font-family: 'CMU'; src: url('CMU-Bold.ttf') format('truetype'); font-weight: bold; }
@@ -45,7 +45,7 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5); transition: all 0.3s ease; 
         }
         .canvas-area { 
-            width: 1080px; height: 1350px; background-color: #000; position: relative; 
+            width: 1080px; height: 1350px; background-color: transparent; position: relative; 
             overflow: hidden; transition: all 0.3s ease; 
         }
         .bg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: grid; }
@@ -61,28 +61,38 @@
         
         .bg-cell { 
             position: relative; overflow: hidden; display: flex; align-items: center; 
-            justify-content: center; border: 4px solid transparent; cursor: grab; background-color: #111; 
+            justify-content: center; outline: 4px solid transparent; outline-offset: -4px; cursor: grab; background-color: #111; 
         }
         .bg-cell:active { cursor: grabbing; }
-        .bg-cell.active-cell { border-color: #f1c40f; z-index: 5; box-shadow: inset 0 0 20px rgba(241, 196, 15, 0.5); }
+        .bg-cell.active-cell { outline-color: #f1c40f; z-index: 5; box-shadow: inset 0 0 20px rgba(241, 196, 15, 0.5); }
         .bg-cell img, .bg-cell video { position: absolute; width: 100%; height: auto; pointer-events: none; }
 
         .overlay-template { position: absolute; top: 0; left: 0; width: 1080px; height: 1350px; pointer-events: none; z-index: 10; }
         .footer-layer { position: absolute; bottom: 0; left: 0; width: 1080px; height: 200px; z-index: 50; pointer-events: none; display: none; background-color: #000; }
         .footer-layer img { width: 100%; height: 100%; object-fit: cover; }
 
+        /* ระบบ Speaker Box ใหม่ */
         .speaker-box { 
             position: absolute; top: 715px; left: 54px; width: 276px; height: 283px; 
-            border: 6px solid; border-image: linear-gradient(to bottom, #aeffae, #1cfff3) 1; 
-            background-color: #222; z-index: 20; display: none; overflow: hidden; 
-            box-sizing: border-box; cursor: grab; 
+            z-index: 20; display: none; cursor: grab; background-color: transparent;
         }
-        .speaker-box:active { cursor: grabbing; }
-        .speaker-box img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+        .speaker-border {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, #aeffae, #1cfff3);
+            z-index: 1; pointer-events: none;
+        }
+        .speaker-inner {
+            position: absolute; top: 6px; left: 6px; width: 264px; height: 271px;
+            background-color: #222; overflow: hidden; z-index: 2; pointer-events: none;
+        }
+        .speaker-inner img { 
+            position: absolute; top: 0; left: 0; transform-origin: top left; pointer-events: none; 
+        }
         .speaker-nameplate { 
-            position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to bottom, #15b7c1, #44bf84); 
+            position: absolute; bottom: 0; left: 0; width: 100%; 
+            background: linear-gradient(to bottom, #15b7c1, #44bf84); 
             color: #fff; text-align: center; padding: 12px 0; font-size: 20px; font-weight: bold; font-style: italic; 
-            z-index: 25; pointer-events: none; 
+            z-index: 3; pointer-events: none; 
         }
 
         .text-layer { position: absolute; top: 1008px; left: 55px; width: 970px; z-index: 30; pointer-events: none; display: flex; flex-direction: column; gap: 5px; }
@@ -188,7 +198,7 @@
                 </div>
                 
                 <div id="speakerUploadGroup" style="display: none; background: #111; padding: 10px; border-radius: 4px; border: 1px solid #15b7c1;">
-                    <label style="color: #15b7c1;">👤 อัปโหลดรูปคนพูด (ขยับซูมได้แล้ว!)</label>
+                    <label style="color: #15b7c1;">👤 อัปโหลดรูปคนพูด</label>
                     <input type="file" id="speakerUpload" accept="image/*">
                     <div class="zoom-controls">
                         <button onclick="changeSpkZoom(0.1)" style="background: #15b7c1; color: #fff;">🔍 ซูมเข้า</button>
@@ -212,16 +222,16 @@
 
             <div class="control-group">
                 <label>พาดหัวข่าว</label>
-                <input type="text" id="headlineInput" value="พาดหัว">
+                <input type="text" id="headlineInput" value="หัวข้อข่าวฟ้อนต์ CMU ขนาด 100pt">
             </div>
 
             <div class="control-group">
                 <label>เนื้อหาข่าวบรรทัดที่ 1</label>
-                <input type="text" id="content1Input" value="บรรทัดที่ 1">
+                <input type="text" id="content1Input" value="เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76">
                 <label style="margin-top: 5px;">เนื้อหาข่าวบรรทัดที่ 2</label>
-                <input type="text" id="content2Input" value="บรรทัดที่ 2">
+                <input type="text" id="content2Input" value="เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76">
                 <label style="margin-top: 5px;">เนื้อหาข่าวบรรทัดที่ 3</label>
-                <input type="text" id="content3Input" value="บรรทัดที่ 3">
+                <input type="text" id="content3Input" value="เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76">
             </div>
 
             <div class="control-group">
@@ -274,24 +284,27 @@
                     <img src="FACEBOOKNEWS2026 copy.png" class="overlay-template" id="overlayTemplate" onerror="this.style.display='none';">
 
                     <div class="speaker-box" id="speakerBox">
-                        <img id="speakerImg" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='276' height='283' viewBox='0 0 276 283'%3E%3Crect width='100%25' height='100%25' fill='%23555'/%3E%3Ctext x='50%25' y='50%25' fill='%23eee' font-size='24' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'%3ESpeaker%3C/text%3E%3C/svg%3E">
-                        <div class="speaker-nameplate" id="speakerNameDisplay">ชื่อคน</div>
+                        <div class="speaker-border"></div>
+                        <div class="speaker-inner">
+                            <img id="speakerImg" style="width: 100%; height: 100%;" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='276' height='283' viewBox='0 0 276 283'%3E%3Crect width='100%25' height='100%25' fill='%23555'/%3E%3Ctext x='50%25' y='50%25' fill='%23eee' font-size='24' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'%3ESpeaker%3C/text%3E%3C/svg%3E">
+                        </div>
+                        <div class="speaker-nameplate" id="speakerNameDisplay">น้ำแมน Gamer Inside</div>
                     </div>
 
                     <div class="text-layer" id="textLayer">
-                        <div class="headline-text" id="dispHeadline">พาดหัวข่าว</div>
-                        <div class="content-text" id="dispContent1">บรรทัดที่ 1</div>
-                        <div class="content-text" id="dispContent2">บรรทัดที่ 2</div>
-                        <div class="content-text" id="dispContent3">บรรทัดที่ 3</div>
+                        <div class="headline-text" id="dispHeadline">หัวข้อข่าวฟ้อนต์ CMU ขนาด 100pt</div>
+                        <div class="content-text" id="dispContent1">เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76</div>
+                        <div class="content-text" id="dispContent2">เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76</div>
+                        <div class="content-text" id="dispContent3">เนื้อหาข่าวฟ้อน CMU แบบ Regular ขนาด 76</div>
                         <div class="source-text" id="dispSource">ที่มา - gamerinsideth.com / รูปภาพ - Lasthope Studio</div>
                     </div>
 
                     <div class="trailer-text-layer" id="trailerTextLayer">
-                        <div class="trailer-game-name" id="dispTrailerGame">ชื่อเกม</div>
+                        <div class="trailer-game-name" id="dispTrailerGame">ชื่อเกมขนาด 54 pt ฟ้อนต์ CMU Bold</div>
                         <div class="trailer-desc-container">
-                            <div class="trailer-desc-text" id="dispTrailerDesc1">บรรทัดที่ 1</div>
-                            <div class="trailer-desc-text" id="dispTrailerDesc2">บรรทัดที่ 2</div>
-                            <div class="trailer-desc-text" id="dispTrailerDesc3">บรรทัดที่ 3</div>
+                            <div class="trailer-desc-text" id="dispTrailerDesc1">ข้อความแนะนำเกมขนาด 70 pt CMU Regular</div>
+                            <div class="trailer-desc-text" id="dispTrailerDesc2">ข้อความแนะนำเกมขนาด 70 pt CMU Regular</div>
+                            <div class="trailer-desc-text" id="dispTrailerDesc3">ข้อความแนะนำเกมขนาด 70 pt CMU Regular</div>
                         </div>
                     </div>
 
@@ -473,8 +486,20 @@
 
     document.getElementById('speakerUpload').addEventListener('change', function(e) {
         if (e.target.files[0]) {
-            spkImg.src = URL.createObjectURL(e.target.files[0]);
-            spkScale = 1; spkX = 0; spkY = 0; updateSpkTransform();
+            const url = URL.createObjectURL(e.target.files[0]);
+            spkImg.onload = function() {
+                const boxRatio = 264 / 271;
+                const imgRatio = spkImg.naturalWidth / spkImg.naturalHeight;
+                if (imgRatio > boxRatio) {
+                    spkImg.style.height = '100%';
+                    spkImg.style.width = 'auto';
+                } else {
+                    spkImg.style.width = '100%';
+                    spkImg.style.height = 'auto';
+                }
+                spkScale = 1; spkX = 0; spkY = 0; updateSpkTransform();
+            };
+            spkImg.src = url;
         }
     });
 
@@ -622,7 +647,7 @@
             newEl.src = URL.createObjectURL(file);
             newEl.autoplay = true; 
             newEl.loop = true; 
-            newEl.muted = false; // อนุญาตให้มีเสียงเพื่อดึงเสียงไปรวมตอนอัด
+            newEl.muted = false; 
             newEl.playsInline = true;
             newEl.crossOrigin = "anonymous";
             newEl.onloadedmetadata = function() {
@@ -700,9 +725,6 @@
 
     renderGrid(1);
 
-    // ==========================================
-    // ระบบบันทึกวิดีโอ (รองรับ MOV/MP4 และดึงเสียงติดไปด้วย)
-    // ==========================================
     let mediaRecorder;
     let recordedChunks = [];
     let isRecording = false;
@@ -725,9 +747,10 @@
                 let start = d.trimStart || 0;
                 let dur = end - start;
                 if (dur > maxDuration) maxDuration = dur;
+                // สั่งหยุดวิดีโอไว้ก่อนเพื่อป้องกันเสียงไปก่อนภาพตอนอัด
+                d.el.pause(); 
                 d.el.currentTime = start;
-                d.el.muted = false; // เปิดเสียงเพื่อให้ระบบเก็บเสียงได้
-                d.el.play().catch(e => console.log(e));
+                d.el.muted = false; 
             }
         });
         if (maxDuration <= 0) maxDuration = 5; 
@@ -746,21 +769,16 @@
         bgLayer.style.opacity = '0';
         document.querySelectorAll('.bg-cell').forEach(c => c.classList.remove('active-cell'));
         
-        const canvasAreaEl = document.getElementById('captureArea');
-        const oldBgColor = canvasAreaEl.style.backgroundColor;
-        canvasAreaEl.style.backgroundColor = 'transparent';
-        
         document.getElementById('recordingOverlay').style.display = 'flex';
         let timeLeft = maxDuration;
         document.getElementById('recordTimeDisplay').innerText = `เหลือเวลาอีก ${Math.ceil(timeLeft)} วินาที`;
 
         try {
-            const staticCanvas = await html2canvas(canvasAreaEl, { 
+            const staticCanvas = await html2canvas(canvasArea, { 
                 scale: 1, width: targetW, height: targetH, 
                 backgroundColor: null, useCORS: true 
             });
 
-            canvasAreaEl.style.backgroundColor = oldBgColor || '#000';
             bgLayer.style.opacity = '1'; 
             
             const recCanvas = document.createElement('canvas');
@@ -769,13 +787,12 @@
             const ctx = recCanvas.getContext('2d');
 
             if (!recCanvas.captureStream) {
-                alert("เบราว์เซอร์ของคุณไม่อนุญาตให้อัดหน้าจอ Canvas แนะนำให้ใช้ Google Chrome หรือ Safari เวอร์ชั่นล่าสุดครับ");
+                alert("เบราว์เซอร์ของคุณไม่อนุญาตให้อัดหน้าจอ Canvas แนะนำให้ใช้ Google Chrome หรือ Safari เวอร์ชั่นล่าสุด");
                 document.getElementById('recordingOverlay').style.display = 'none';
                 setPreviewScale(originalScale, originalScale !== 1 && originalScale !== 0.5);
                 return;
             }
 
-            // --- ระบบดึงเสียงจากวิดีโอ (Web Audio API) ---
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const dest = audioCtx.createMediaStreamDestination();
             
@@ -784,7 +801,7 @@
                     try {
                         const source = audioCtx.createMediaElementSource(d.el);
                         source.connect(dest);
-                        source.connect(audioCtx.destination); // ต่อเข้าลำโพงเบาๆ เพื่อให้เล่นเสียงได้
+                        source.connect(audioCtx.destination); 
                     } catch(err) {
                         console.log("Audio source already connected", err);
                     }
@@ -793,12 +810,9 @@
 
             const videoStream = recCanvas.captureStream(30);
             const audioStream = dest.stream;
-            
-            // รวมแทร็กภาพและแทร็กเสียงเข้าด้วยกัน
             const combinedTracks = [...videoStream.getVideoTracks(), ...audioStream.getAudioTracks()];
             const combinedStream = new MediaStream(combinedTracks);
             
-            // ตั้งค่านามสกุลและตัวเข้ารหัสรองรับ iOS Safari และ Android/PC
             let options = { mimeType: 'video/webm;codecs=h264,opus' };
             if (MediaRecorder.isTypeSupported('video/mp4')) {
                 options = { mimeType: 'video/mp4' };
@@ -831,7 +845,7 @@
             function drawFrame() {
                 if(!isRecording) return;
                 
-                ctx.fillStyle = '#000';
+                ctx.fillStyle = '#111';
                 ctx.fillRect(0, 0, targetW, targetH);
                 
                 document.querySelectorAll('.bg-cell').forEach((cell, idx) => {
@@ -851,6 +865,7 @@
                     if(nw && nh) {
                         let baseW = cellW;
                         let baseH = (nh/nw) * cellW;
+                        
                         let cx = cellX + baseW/2;
                         let cy = cellY + baseH/2;
                         
@@ -866,7 +881,14 @@
             }
 
             isRecording = true;
+            
+            // เริ่มต้นบันทึกก่อน ค่อยสั่งเล่นวิดีโอ (ป้องกันเสียงไปก่อนภาพ)
             mediaRecorder.start();
+            cellsData.forEach(d => {
+                if (d.type === 'video' && d.el) {
+                    d.el.play().catch(e => console.log(e));
+                }
+            });
             drawFrame();
 
             countdownInterval = setInterval(() => {
@@ -925,19 +947,20 @@
         previewContainer.style.width = targetW + 'px';
         previewContainer.style.height = targetH + 'px';
 
-        let mimeType = currentFormat === 'thumbnail' ? 'image/webp' : 'image/jpeg';
-        let ext = currentFormat === 'thumbnail' ? 'webp' : 'jpeg';
+        // บังคับแปลงเป็น PNG เพื่อตัดปัญหาขอบดำจาก JPG
+        let mimeType = 'image/png';
+        let ext = 'png';
         let filename = 'GamerInside-News';
         if (currentFormat === 'thumbnail') filename = 'GamerInside-Thumbnail';
         if (currentFormat === 'trailer') filename = 'GamerInside-NewTrailer';
 
         setTimeout(() => {
             html2canvas(canvasArea, { 
-                scale: 1, width: targetW, height: targetH, useCORS: true, backgroundColor: '#000000' 
+                scale: 1, width: targetW, height: targetH, useCORS: true, backgroundColor: null 
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `${filename}.${ext}`;
-                link.href = canvas.toDataURL(mimeType, 0.95);
+                link.href = canvas.toDataURL(mimeType, 1.0);
                 link.click();
                 
                 setPreviewScale(originalScale, originalScale !== 1 && originalScale !== 0.5);
